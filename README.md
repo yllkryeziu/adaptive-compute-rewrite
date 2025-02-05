@@ -34,8 +34,8 @@
 # Getting Started
 
 We open source the code and scripts we used for data curation, training, and evaluation for Sky-T1-32B-Preview, you can find more details in each directory.
-- ``/data``: The 17k training data used to train Sky-T1-32B-Preview. We also add the science and riddle portion from the [STILL-2 model](https://arxiv.org/pdf/2412.09413).
-- ``skythought/skythought_evals``: Our data generation and evaluation library. To generate the training data for Sky-T1, we use the QwQ-32B-Preview model. We curate the data mixture to cover diverse domains that require reasoning, and a reject sampling procedure to improve the data quality. 
+- ``recipes``: Recipes - data curation steps and training strategies - for building our models `Sky-T1-32B-Flash` and `Sky-T1-32B-Preview`. 
+- ``skythought/skythought_evals``: Our data generation and evaluation library. 
 - ``skythought/train``: Training scripts for Sky-T1. We use [Llama-Factory](https://github.com/hiyouga/LLaMA-Factory) to perform training. The model was trained for 3 epochs with a learning rate of 1e-5 and a batch size of 96. Our model training was completed in 19 hours on 8 H100 GPUs using DeepSpeed Zero-3 offloading, costing approximately $450 as per Lambda Cloud pricing. 
 
 
@@ -53,6 +53,22 @@ conda create -n eval python==3.10
 conda activate eval 
 pip install -e .
 ```
+
+We support a wide variety of datasets in mathematics, science and coding:
+
+- AIME'24
+- MATH500
+- GPQADiamond
+- MMLU
+- ARC-Challenge
+- OlympiadBench
+- AMC'23 
+- TACO 
+- APPS
+- LiveCodeBench
+- MMLU Pro
+- MinervaMath
+- GSM8K
 
 For running evaluation, please refer to [skythought_evals/README.md](skythought/skythought_evals/README.md).
 

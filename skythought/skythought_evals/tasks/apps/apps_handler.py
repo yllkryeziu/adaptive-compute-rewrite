@@ -2,6 +2,7 @@ import copy
 import json
 import multiprocessing
 from multiprocessing import Manager
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from skythought_evals.util.common import has_code
@@ -82,7 +83,12 @@ class APPSTaskHandler(TaskHandler):
 
         return response_entry
 
-    def make_conversations(self, data, system_prompt, model=None):
+    def make_conversations(
+        self,
+        data: List[Dict[str, Any]],
+        system_prompt: Optional[str] = None,
+        user_template: Optional[str] = None,
+    ):
         conversations = []
         for problem in data:
             test_case = json.loads(problem["input_output"])
@@ -91,10 +97,11 @@ class APPSTaskHandler(TaskHandler):
                 test_case, problem["question"], starter_code
             )
             conversations.append(
-                [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt_text},
-                ]
+                self.make_conversation_from_contents(
+                    [prompt_text],
+                    system_prompt=system_prompt,
+                    user_template=user_template,
+                )
             )
         return conversations
 

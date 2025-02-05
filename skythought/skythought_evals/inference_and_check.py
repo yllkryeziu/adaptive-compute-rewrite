@@ -7,20 +7,19 @@ from functools import partial
 
 import numpy as np
 from openai import OpenAI
+from skythought_evals.models import ModelConfig, get_system_prompt_keys
 from skythought_evals.tasks import (
     TASK_HANDLER_MAP,
+    TASK_NAMES_TO_YAML,
     NUMINATaskHandler,
     TaskConfig,
     TaskHandler,
 )
-from skythought_evals.tasks.task_util import get_tasks
 from skythought_evals.util.common import set_seed
-from skythought_evals.util.model_utils import MODEL_TO_NAME, SYSTEM_PROMPT
 from tqdm import tqdm
 from vllm import LLM, SamplingParams
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
-TASK_NAMES_TO_YAML = get_tasks(os.path.join(module_dir, "tasks"))
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -62,7 +61,7 @@ def perform_inference_and_check(
     max_tokens,
     result_file,
     llm,
-    system_prompt,
+    model_config,
     args,
 ):
     results = handler.load_existing_results(result_file)
@@ -77,7 +76,7 @@ def perform_inference_and_check(
     )
     remaining_data = handler.process_remaining_data(train_data, results)
     conversations = handler.make_conversations(
-        remaining_data, system_prompt, args.model
+        remaining_data, model_config.system_prompt, model_config.user_template
     )
     for temp in temperatures:
         if args.model.startswith("openai"):
@@ -305,7 +304,7 @@ def perform_inference_and_save(
     max_tokens,
     result_file,
     llm,
-    system_prompt,
+    model_config,
     args,
 ):
     results = handler.load_existing_results(result_file)
@@ -320,7 +319,7 @@ def perform_inference_and_save(
     )
     remaining_data = handler.process_remaining_data(train_data, results)
     conversations = handler.make_conversations(
-        remaining_data, system_prompt, args.model
+        remaining_data, model_config.system_prompt, model_config.user_template
     )
 
     for temp in temperatures:
@@ -502,6 +501,13 @@ def main():
         help="Highest difficulty level for math.",
     )
     parser.add_argument(
+        "--system-prompt-template",
+        type=str,
+        default=None,
+        help="System prompt template to use",
+        choices=get_system_prompt_keys(),
+    )
+    parser.add_argument(
         "--n", type=int, default=1, help="Number of samples generated per problem."
     )
     parser.add_argument("--seed", type=int, default=41, help="Random seed.")
@@ -518,6 +524,8 @@ def main():
     handler_name = task_config.handler
     handler_cls = TASK_HANDLER_MAP[handler_name]
     handler = handler_cls(task_config)
+
+    model_config = ModelConfig.from_model_id(args.model, args.system_prompt_template)
 
     temperatures = [1] if args.model.startswith("openai/o1") else args.temperatures
 
@@ -543,12 +551,12 @@ def main():
     ):
         result_file = os.path.join(
             args.result_dir,
-            f"{MODEL_TO_NAME[args.model]}_{args.task}_{args.split}_{args.subset}_{args.filter_difficulty}_{args.start}_{args.end}_{args.math_difficulty_lower_bound}_{args.math_difficulty_upper_bound}.json",
+            f"{model_config.name}_{args.task}_{args.split}_{args.subset}_{args.filter_difficulty}_{args.start}_{args.end}_{args.math_difficulty_lower_bound}_{args.math_difficulty_upper_bound}.json",
         )
     else:
         result_file = os.path.join(
             args.result_dir,
-            f"{MODEL_TO_NAME[args.model]}_{args.task}_{args.split}_{args.subset}_{args.filter_difficulty}_{args.start}_{args.end}.json",
+            f"{model_config.name}_{args.task}_{args.split}_{args.subset}_{args.filter_difficulty}_{args.start}_{args.end}.json",
         )
 
     if args.check:
@@ -558,11 +566,11 @@ def main():
             or args.math_difficulty_upper_bound is not None
         ):
             converted_file = (
-                f"{args.result_dir}/converted_{MODEL_TO_NAME[args.model]}_{args.task}_{args.split}_{args.subset}_{args.filter_difficulty}_{args.start}_{args.end}"
+                f"{args.result_dir}/converted_{model_config.name}_{args.task}_{args.split}_{args.subset}_{args.filter_difficulty}_{args.start}_{args.end}"
                 + f"_{args.math_difficulty_lower_bound}_{args.math_difficulty_upper_bound}.json"
             )
         else:
-            converted_file = f"{args.result_dir}/converted_{MODEL_TO_NAME[args.model]}_{args.task}_{args.split}_{args.subset}_{args.filter_difficulty}"
+            converted_file = f"{args.result_dir}/converted_{model_config.name}_{args.task}_{args.split}_{args.subset}_{args.filter_difficulty}"
             f"_{args.start}_{args.end}.json"
         if os.path.exists(converted_file):
             result_file = converted_file
@@ -574,9 +582,8 @@ def main():
             if args.model.startswith("openai")
             else LLM(model=args.model, tensor_parallel_size=args.tp)
         )
-        system_prompt = SYSTEM_PROMPT[args.model]
         perform_inference_and_save(
-            handler, temperatures, max_tokens, result_file, llm, system_prompt, args
+            handler, temperatures, max_tokens, result_file, llm, model_config, args
         )
         return
 
@@ -585,7 +592,6 @@ def main():
         if args.model.startswith("openai")
         else LLM(model=args.model, tensor_parallel_size=args.tp)
     )
-    system_prompt = SYSTEM_PROMPT[args.model]
 
     perform_inference_and_check(
         handler,
@@ -593,7 +599,7 @@ def main():
         max_tokens,
         result_file,
         llm,
-        system_prompt,
+        model_config,
         args,
     )
 
