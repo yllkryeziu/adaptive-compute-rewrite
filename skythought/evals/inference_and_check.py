@@ -13,27 +13,28 @@ import numpy as np
 import pandas as pd
 import ray
 from openai import OpenAI
-from skythought_evals.batch import Pipeline, init_engine_from_config
-from skythought_evals.batch.env_config import EnvConfig
-from skythought_evals.batch.workload import EvalWorkload
-from skythought_evals.common.entities import (
+from tqdm import tqdm
+from vllm import LLM
+
+from skythought.evals.batch import Pipeline, init_engine_from_config
+from skythought.evals.batch.env_config import EnvConfig
+from skythought.evals.batch.workload import EvalWorkload
+from skythought.evals.common.entities import (
     Backend,
     BackendParameters,
     OpenAISamplingParams,
     RayLLMEngineArgs,
     SamplingParameters,
 )
-from skythought_evals.models import ModelConfig
-from skythought_evals.tasks import (
+from skythought.evals.models import ModelConfig
+from skythought.evals.tasks import (
     ConversationType,
     NUMINATaskHandler,
     TaskHandler,
 )
-from skythought_evals.util.metrics import pass_at_k
-from skythought_evals.util.response import Response, SingleParsedResponse
-from skythought_evals.util.results import SummaryResults, save_summary
-from tqdm import tqdm
-from vllm import LLM
+from skythought.evals.util.metrics import pass_at_k
+from skythought.evals.util.response import Response, SingleParsedResponse
+from skythought.evals.util.results import SummaryResults, save_summary
 
 logger = logging.getLogger(__name__)
 module_dir = os.path.dirname(os.path.abspath(__file__))
@@ -77,29 +78,26 @@ def fetch_response_openai(
     model_name = model_config.name
     # Ensure model_name has been resolved to a string
     assert model_name
-    if "o1" in model_name:
+    if model_name.startswith("o1") or model_name.startswith("o3"):
         # O1 doesn't support system prompt
         # NOTE: might want to implement this inside handler instead
         for p in prompt:
             p["role"] = "user"
-
         response = client.chat.completions.create(
             model=model_config.model_id,
             messages=prompt,
             n=sampling_params.n,
-            temperature=sampling_params.temperature,
-            max_tokens=sampling_params.max_tokens,
             reasoning_effort=sampling_params.reasoning_effort,
-            frequency_penalty=sampling_params.frequency_penalty,
             max_completion_tokens=sampling_params.max_tokens,
         )
     else:
+        if sampling_params.reasoning_effort:
+            raise ValueError("Reasoning effort is only supported for reasoning models")
         response = client.chat.completions.create(
             model=model_config.model_id,
             messages=prompt,
             n=sampling_params.n,
             temperature=sampling_params.temperature,
-            max_tokens=sampling_params.max_tokens,
             frequency_penalty=sampling_params.frequency_penalty,
             max_completion_tokens=sampling_params.max_tokens,
         )
@@ -170,12 +168,13 @@ def inference(
         responses = copy.deepcopy(responses)
         responses = sorted(responses, key=lambda x: x.index)
     elif backend == Backend.OPENAI:
-        llm = OpenAI(**backend_params)
+        llm = OpenAI(**backend_params.to_dict())
+        assert isinstance(sampling_params.params, OpenAISamplingParams)
         fetch_partial = partial(
             fetch_response_openai,
             llm,
             model_config,
-            sampling_params,
+            sampling_params.params,
         )
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=16) as e:

@@ -3,9 +3,11 @@ from dataclasses import dataclass
 from enum import Enum
 from importlib import resources
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Literal, Optional, Union
 
 import yaml
+from openai import NOT_GIVEN, NotGiven
+from openai.types.chat import ChatCompletionReasoningEffort
 from pydantic import BaseModel, ConfigDict, Field
 from vllm import SamplingParams as VLLMSamplingParams
 
@@ -21,18 +23,20 @@ class Backend(str, Enum):
 
 
 class OpenAISamplingParams(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     temperature: float = TEMPERATURE_DEFAULT
     top_p: float = TOP_P_DEFAULT
     n: int = 1
     max_tokens: int = MAX_TOKENS_DEFAULT
-    reasoning_effort: Optional[float] = None
+    reasoning_effort: Union[ChatCompletionReasoningEffort, NotGiven] = NOT_GIVEN
     frequency_penalty: Optional[float] = None
 
 
 class SamplingParameters(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    params: Union[Dict[str, Any], OpenAISamplingParams, VLLMSamplingParams]
+    params: Union[OpenAISamplingParams, VLLMSamplingParams]
 
     @classmethod
     def from_dict(cls, backend: Backend, params: dict):
@@ -85,7 +89,7 @@ class RayLLMEngineArgs(BaseModel):
 
     def get_ray_llm_config(self):
         config_path = Path(
-            resources.files("skythought_evals").joinpath("ray_configs/ray_config.yaml")
+            resources.files("skythought.evals").joinpath("ray_configs/ray_config.yaml")
         )
         with open(config_path) as f:
             default_config = yaml.safe_load(f)
