@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 app = typer.Typer(pretty_exceptions_enable=False)
 
+SAMPLING_PARAMS_DEFAULT = "temperature=0,top_p=1,max_tokens=32768"
+
 
 def get_run_config(
     task: str,
@@ -109,7 +111,10 @@ def parse_common_args(
             f"Task {task} not found. Should be one of {TASK_NAMES_TO_YAML.keys()}"
         )
     task_args_as_dict = parse_multi_args(task_args)
-    sampling_params_as_dict = parse_multi_args(sampling_params)
+    user_provided_sampling_params_as_dict = parse_multi_args(sampling_params)
+    sampling_params_as_dict = parse_multi_args(SAMPLING_PARAMS_DEFAULT)
+    sampling_params_as_dict.update(user_provided_sampling_params_as_dict)
+
     backend_args_as_dict = parse_multi_args(backend_args)
 
     if n is not None:
@@ -189,7 +194,7 @@ def evaluate(
     backend_args: Annotated[
         str,
         typer.Option(
-            help="Backend parameters to use for inference. For open-source models, we perform inference in float32 by default",
+            help="Backend parameters to use for inference.",
             case_sensitive=False,
         ),
     ] = "",
@@ -199,7 +204,7 @@ def evaluate(
             help="Sampling parameters to use for inference.",
             case_sensitive=False,
         ),
-    ] = "temperature=0,top_p=1,max_tokens=32768",
+    ] = SAMPLING_PARAMS_DEFAULT,
     result_dir: Annotated[
         str,
         typer.Option(
@@ -225,7 +230,9 @@ def evaluate(
     seed: Annotated[int, typer.Option(help="Random seed.")] = 41,
     assistant_prefill: Annotated[
         str,
-        typer.Option(help=r'Assistant prefill for the model response. Ex: "<think>\n"'),
+        typer.Option(
+            help=r'Assistant prefill for the model response, overriding any pre-configured assistant prefill for this model. Ex: "<think>\n"'
+        ),
     ] = None,
     as_test: Annotated[
         bool, typer.Option(help="Perform a test run on 10 samples of the dataset.")
