@@ -43,6 +43,13 @@ skythought evaluate --model Qwen/QwQ-32B-Preview --task aime --backend ray --bac
 
 By default, we make use of the configuration in [ray_configs/ray_config.yaml](./ray_configs/ray_config.yaml). You can also customize the following parameters for ray: 
 
+- `tensor_parallel_size`: Tensor parallel size per replica. Defaults to 4.  
+- `accelerator_type`: GPU accelerator type. See [the list of available types](https://docs.ray.io/en/latest/ray-core/accelerator-types.html) for more information. Defaults to None, which means any available GPUs in the Ray cluster will be used.  
+- `num_replicas`: Number of model replicas to use for inference. Defaults to 2.  
+- `batch_size`: Batch size per model replica for inference.  
+- `gpu_memory_utilization`: Fraction of GPU memory allocated to the model executor in vLLM. Defaults to 0.9.  
+- `dtype`: Data type used for inference. Defaults to "auto".
+
 
 ### Optimized settings for 32B and 7B models
 
@@ -54,7 +61,7 @@ For 32B models, we recommend using the default backend configuration for best pe
 skythought evaluate --model Qwen/QwQ-32B-Preview --task aime24 --backend ray --result-dir ./
 ```
 
-For 7B models, we recommend using `tensor_parallel_size=1` and `num_replicas=8` for best performance. FOr example, the previous command will change to:
+For 7B models, we recommend using `tensor_parallel_size=1` and `num_replicas=8` for best performance. For example, the previous command will change to:
 
 ```shell
 skythought evaluate --model Qwen/Qwen2-7B-Instruct --task math500 --backend ray --backend-args tensor_parallel_size=1,num_replicas=8 --result-dir ./
