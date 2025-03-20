@@ -142,7 +142,7 @@ def get_solutions(problem_list, prob_index):
 
 
 def run_test(
-    problem=None,
+    input_outputs=None,
     problem_list: List[str] = None,
     prob_index: int = None,
     test: str = None,
@@ -159,7 +159,7 @@ def run_test(
     if problem_list is not None:
         root = problem_list[prob_index]  # noqa: F841
 
-    in_outs = problem["input_output"]
+    in_outs = input_outputs
     if debug:
         print(f"test cases json = {in_outs['inputs']} {in_outs['outputs']}")
 
