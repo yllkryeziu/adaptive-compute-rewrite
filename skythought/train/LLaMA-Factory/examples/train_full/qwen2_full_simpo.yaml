@@ -23,10 +23,11 @@ output_dir: saves/Sky-T1-32B-Preview/full/original
 logging_steps: 1
 save_steps: 100
 plot_loss: true
+gradient_checkpointing: true
 
 ### train
 per_device_train_batch_size: 1
-gradient_accumulation_steps: 12
+gradient_accumulation_steps: 6
 learning_rate: 5.0e-7
 num_train_epochs: 1.0
 lr_scheduler_type: cosine

@@ -3,8 +3,8 @@
 import logging
 from typing import Optional
 
-from ray._private.ray_logging.filters import CoreContextFilter
-from ray._private.ray_logging.formatters import JSONFormatter
+# from ray._private.ray_logging.filters import CoreContextFilter
+# from ray._private.ray_logging.formatters import JSONFormatter
 
 
 def _add_ray_logging(handler: logging.Handler):
@@ -15,8 +15,9 @@ def _add_ray_logging(handler: logging.Handler):
     Args:
         handler: The handler to add Ray logging to.
     """
-    handler.addFilter(CoreContextFilter())
-    handler.setFormatter(JSONFormatter())
+    # handler.addFilter(CoreContextFilter())
+    # handler.setFormatter(JSONFormatter())
+    pass
 
 
 def _setup_logger(logger_name: str):

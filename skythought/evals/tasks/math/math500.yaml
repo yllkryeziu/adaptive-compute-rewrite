@@ -1,6 +1,6 @@
 handler: math
-dataset_path: "qq8933/MATH500"  # repo ID in huggingface
-dataset_subset: null # which subset on huggingface
+dataset_path: "/p/project1/envcomp/yll/.cache/huggingface/datasets/math500_offline"  # local offline dataset
+dataset_subset: default # which subset on huggingface
 question_key: problem
 answer_key: answer
 dataset_split: test

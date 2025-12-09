@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -5,7 +6,7 @@ from urllib.parse import urlparse
 import pandas as pd
 import yaml
 from datasets import Dataset as HFDataset
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 from pydantic import BaseModel, Field
 
 ConversationType = List[Dict[str, Any]]
@@ -86,13 +87,17 @@ class TaskHandler(ABC):
         # check if the path provided is a valid URL
         parsed = urlparse(self.task_config.dataset_path)
         if not parsed.scheme:
-            # HF dataset
-            dataset = load_dataset(
-                path=self.task_config.dataset_path,
-                name=subset if subset else self.task_config.dataset_subset,
-                split=split if split else self.task_config.dataset_split,
-                **self.task_config.dataset_kwargs,
-            )
+            # Check if it's a local directory (for load_from_disk)
+            if os.path.isdir(self.task_config.dataset_path):
+                dataset = load_from_disk(self.task_config.dataset_path)
+            else:
+                # HF dataset
+                dataset = load_dataset(
+                    path=self.task_config.dataset_path,
+                    name=subset if subset else self.task_config.dataset_subset,
+                    split=split if split else self.task_config.dataset_split,
+                    **self.task_config.dataset_kwargs,
+                )
         else:
             # Try to load URL
             # Only JSON supported for now
