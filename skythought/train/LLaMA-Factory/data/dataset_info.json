@@ -648,7 +648,7 @@
     }
   },
   "Sky-T1-simpo": {
-    "file_name": "your data path here",
+    "file_name": "/p/project1/envcomp/yll/adaptive-compute-rewrite/results/simpo/Sky-T1_preference_data_10k.json",
     "ranking": true,
     "formatting": "sharegpt",
     "columns": {
@@ -666,5 +666,5 @@
       "chosen": "chosen",
       "rejected": "rejected"
     }
-  },
+  }
 }
