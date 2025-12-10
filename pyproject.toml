@@ -16,6 +16,7 @@ dependencies = [
     "setuptools",
     "typer",
     "hf_transfer",
+    "pytest>=8.3.4",
 ]
 license = { text = "Apache-2.0" }
 readme = "README.md"

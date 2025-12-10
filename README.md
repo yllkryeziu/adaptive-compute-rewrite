@@ -18,6 +18,35 @@
 
 </div>
 
+# Known Issues and Fixes
+
+## Known Issues and Fixes
+
+### Configuration & Scripts
+
+#### `skythought/evals/tasks/math/math500.yaml`
+- Updated `dataset_path` to `qq8933/MATH500`.
+- Set `dataset_subset: default` to ensure compatibility with the offline local cache structure.
+
+### Virtual Environment Patches (Hotfixes)
+
+To resolve library incompatibilities and offline loading errors without rebuilding the entire environment, the following patches were applied directly to files in `.venv`:
+
+#### `skythought/evals/batch/logging/__init__.py`
+- **Issue:** `ModuleNotFoundError: No module named 'ray._private.ray_logging.filters'`
+- **Fix:** Commented out unused `ray` imports to prevent crash on startup.
+
+#### `.venv/.../datasets/features/features.py`
+- **Issue:** `AttributeError: module 'pyarrow' has no attribute 'PyExtensionType'`
+- **Fix:** Replaced `pa.PyExtensionType` with `pa.ExtensionType` to match the installed pyarrow version.
+
+#### `.venv/.../fsspec/utils.py`
+- **Issue:** `ValueError: Invalid pattern: '**' can only be an entire path component`
+- **Fix:** Disabled the strict glob pattern validation check to allow Hugging Face's dataset path patterns.
+
+#### `.venv/.../datasets/builder.py`
+- **Issue:** `NotImplementedError: Loading a dataset cached in a LocalFileSystem is not supported.`
+- **Fix:** Bypassed the check that blocked loading datasets from the local filesystem, enabling offline evaluation.
 
 # News
 - **[2025/02/21]** 🎉 We released S*: Test time scaling for code generation ([paper](https://arxiv.org/pdf/2502.14382), [code](https://github.com/NovaSky-AI/SkyThought/tree/main/skythought/test-time-scaling)), a simple and extensible test time scaling framework for code generation.

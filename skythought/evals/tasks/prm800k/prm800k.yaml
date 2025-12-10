@@ -1,0 +1,10 @@
+handler: prm800k
+name: prm800k
+path: Mai0313/prm800k
+subset: default
+split: train
+question_key: problem
+answer_key: answer
+description: "PRM800K - Process-Supervised Reward Model dataset with 800K math problems"
+templating_parameters: 
+  template: "Return your final response within \\boxed{{}}. {problem}"
