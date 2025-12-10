@@ -7,7 +7,7 @@ from skythought.evals.util.math_parsing_util import (
 from ..base import TaskHandler
 
 
-class MathTaskHandler(TaskHandler):
+class PRM800KTaskHandler(TaskHandler):
     def generate_prompt(self, problem):
         return self.task_config.templating_parameters["template"].format(**problem)
 

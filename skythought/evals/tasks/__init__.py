@@ -15,6 +15,7 @@ from .mmlu.mmlu_handler import MMLUProTaskHandler, MMLUTaskHandler
 from .numina.numina_handler import NUMINATaskHandler
 from .olympiadbench.olympiadbench_handler import OlympiadBenchMathTaskHandler
 from .omni_math.omni_handler import OMNIMathTaskHandler
+from .prm800k.prm800k_handler import PRM800KTaskHandler
 from .taco.taco_handler import TACOTaskHandler
 from .task_util import get_tasks
 
@@ -35,6 +36,7 @@ TASK_HANDLER_MAP = {
     "olympiadbench_math": OlympiadBenchMathTaskHandler,
     "omni_math": OMNIMathTaskHandler,
     "liveaops": LiveAOPSTaskHandler,
+    "prm800k": PRM800KTaskHandler,
 }
 TASK_NAMES_TO_YAML = get_tasks(os.path.dirname(__file__))
 
