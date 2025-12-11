@@ -5,7 +5,7 @@
 #SBATCH --cpus-per-task=48
 #SBATCH --gres=gpu:4
 #SBATCH --time=01:00:00
-#SBATCH --partition=develbooster
+#SBATCH --partition=booster
 #SBATCH --account=envcomp
 #SBATCH --output=logs/%x-%j.out
 

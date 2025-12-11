@@ -4,8 +4,8 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=48
 #SBATCH --gres=gpu:4
-#SBATCH --time=01:00:00
-#SBATCH --partition=develbooster
+#SBATCH --time=24:00:00
+#SBATCH --partition=booster
 #SBATCH --account=envcomp
 #SBATCH --output=logs/%x-%j.out
 
@@ -57,7 +57,6 @@ skythought evaluate \
     --batch-size 16 \
     --n 1 \
     --result-dir $OUTPUT_DIR/$TASK_NAME \
-    --as-test \
     --overwrite
 
 echo "Evaluation complete."
