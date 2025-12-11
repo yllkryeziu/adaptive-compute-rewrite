@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=simpo-4node
-#SBATCH --nodes=4
+#SBATCH --job-name=simpo-lora-1node
+#SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=48
 #SBATCH --gres=gpu:4
@@ -21,17 +21,6 @@ module load cuDNN/9.5.0.50-CUDA-12
 cd /p/project1/envcomp/yll/adaptive-compute-rewrite
 source .venv/bin/activate
 
-# --- Network & Distributed Setup ---
-export MASTER_PORT=29500
-export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)i  # Append 'i' for InfiniBand if needed on JUWELS
-echo "MASTER_ADDR: $MASTER_ADDR"
-
-# Network Interfaces
-export NCCL_SOCKET_IFNAME=ib0
-export GLOO_SOCKET_IFNAME=ib0
-export NCCL_IB_TIMEOUT=22
-export NCCL_DEBUG=INFO
-
 # --- Hugging Face & Caching ---
 export HF_HOME="/p/project1/envcomp/yll/.cache/huggingface"
 export HF_DATASETS_CACHE="/p/project1/envcomp/yll/.cache/huggingface/datasets"
@@ -43,36 +32,18 @@ export TRITON_CACHE_DIR="/p/project1/envcomp/yll/adaptive-compute-rewrite/.cache
 mkdir -p $HF_HOME $HF_DATASETS_CACHE $TRANSFORMERS_CACHE $TORCH_EXTENSIONS_DIR $TRITON_CACHE_DIR slurm/logs
 
 # --- Training Configuration ---
-CONFIG_FILE="examples/train_full/qwen2_full_simpo.yaml"
+CONFIG_FILE="skythought/train/LLaMA-Factory/examples/train_lora/qwen2_lora_simpo.yaml"
 
 # --- Execution ---
-echo "Starting training on 4 nodes..."
+echo "Starting LoRA training on 1 node..."
 echo "Configuration: $CONFIG_FILE"
 export WANDB_MODE=offline
 export DS_SKIP_CUDA_CHECK=1
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-export FORCE_TORCHRUN=1
-export NNODES=$SLURM_JOB_NUM_NODES
-export NPROC_PER_NODE=4
 
-# Launch
-srun \
-    --label \
-    --nodes=$SLURM_JOB_NUM_NODES \
-    --ntasks-per-node=1 \
-    --cpus-per-task=$SLURM_CPUS_PER_TASK \
-    --gpus-per-node=4 \
-    bash -c '
-export NODE_RANK=$SLURM_NODEID
-export MASTER_ADDR='"$MASTER_ADDR"'
-export MASTER_PORT='"$MASTER_PORT"'
-
-echo "Node: $(hostname) Rank: $NODE_RANK Master: $MASTER_ADDR"
-
-cd /p/project1/envcomp/yll/adaptive-compute-rewrite
-source .venv/bin/activate
-
-echo "Python: $(which python)"
-unset OMPI_COMM_WORLD_LOCAL_RANK OMPI_COMM_WORLD_RANK OMPI_COMM_WORLD_SIZE
-llamafactory-cli train skythought/train/LLaMA-Factory/examples/train_full/qwen2_full_simpo.yaml
-'
+# Launch with torchrun for single node
+torchrun \
+    --nproc_per_node=4 \
+    --master_port=29500 \
+    -m llamafactory.launcher \
+    skythought/train/LLaMA-Factory/examples/train_lora/qwen2_lora_simpo.yaml
