@@ -174,3 +174,4 @@ slurm/logs
 saves
 wandb
 docs
+data/nemo_simpo_data.jsonl

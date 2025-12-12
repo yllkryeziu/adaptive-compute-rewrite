@@ -8,7 +8,7 @@ simpo:
   val_period: 25
   val_batches: 4
   val_global_batch_size: 8
-  val_micro_batch_size: 2
+  val_micro_batch_size: 1
   val_at_start: true
   seed: 42
 
@@ -28,13 +28,13 @@ checkpointing:
   checkpoint_must_save_by: null
 
 policy:
-  model_name: "Qwen/Qwen2.5-7B-Instruct"
+  model_name: "/p/project1/envcomp/yll/.cache/huggingface/hub/models--Qwen--Qwen2.5-7B-Instruct/snapshots/a09a35458c702b33eeacc393d103063234e8bc28"
   tokenizer:
-    name: "Qwen/Qwen2.5-7B-Instruct"
+    name: "/p/project1/envcomp/yll/.cache/huggingface/hub/models--Qwen--Qwen2.5-7B-Instruct/snapshots/a09a35458c702b33eeacc393d103063234e8bc28"
     chat_template_kwargs: null
 
   train_global_batch_size: 32
-  train_micro_batch_size: 2
+  train_micro_batch_size: 1
 
   max_total_sequence_length: 4096
   precision: "bfloat16"
@@ -44,13 +44,13 @@ policy:
   # DTensor configuration for simple testing
   dtensor_cfg:
     env_vars:
-      PYTORCH_CUDA_ALLOC_CONF: ""
+      PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True"
     enabled: true
     cpu_offload: false
     sequence_parallel: false
     activation_checkpointing: true
-    tensor_parallel_size: 4
-    context_parallel_size: 1
+    tensor_parallel_size: 2
+    context_parallel_size: 2
     custom_parallel_plan: null
     clear_cache_every_n_steps: null
 
@@ -60,7 +60,8 @@ policy:
   sequence_packing:
     enabled: false
 
-  make_sequence_length_divisible_by: ${policy.dtensor_cfg.tensor_parallel_size}
+  # CP requires seq_len divisible by CP*2*TP for proper sharding
+  make_sequence_length_divisible_by: 8  # 2 (TP) * 2 (CP) * 2 = 8
   max_grad_norm: 1.0
 
   optimizer:
@@ -104,7 +105,10 @@ data:
 
 logger:
   log_dir: "logs/nemo_simpo_7b_test"
-  wandb_enabled: false
+  wandb_enabled: true
+  wandb:
+    project: "nemo-simpo"
+    name: "qwen2.5-7b-simpo-test"
   tensorboard_enabled: false
   mlflow_enabled: false
   swanlab_enabled: false

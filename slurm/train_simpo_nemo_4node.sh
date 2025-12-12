@@ -32,7 +32,6 @@ export MASTER_PORT=29500
 export HF_HOME=/p/project1/envcomp/yll/.cache/huggingface
 export HF_HUB_OFFLINE=1
 export HF_DATASETS_OFFLINE=1
-export TRANSFORMERS_CACHE=$HF_HOME
 
 # Disable tokenizers parallelism (causes issues with multiprocessing)
 export TOKENIZERS_PARALLELISM=false
