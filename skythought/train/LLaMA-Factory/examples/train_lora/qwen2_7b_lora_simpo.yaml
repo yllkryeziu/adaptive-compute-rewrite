@@ -2,27 +2,29 @@
 model_name_or_path: /p/project1/envcomp/yll/.cache/huggingface/hub/models--Qwen--Qwen2-7B-Instruct/snapshots/f2826a00ceef68f0f2b946d945ecc0477ce4450c
 
 ### method
-stage: dpo
+stage: dpo  # 'dpo' is used for simpo/orpo/dpo
 do_train: true
-finetuning_type: full
-deepspeed: /p/project1/envcomp/yll/adaptive-compute-rewrite/skythought/train/LLaMA-Factory/examples/deepspeed/ds_z3_offload_config.json
+finetuning_type: lora
+lora_target: all
+lora_rank: 64
 pref_beta: 2.0
 simpo_gamma: 0.3
 pref_loss: simpo
 
 flash_attn: fa2
+enable_liger_kernel: true
 
 ### dataset
 dataset_dir: /p/project1/envcomp/yll/adaptive-compute-rewrite/skythought/train/LLaMA-Factory/data
 dataset: Sky-T1-simpo
 template: qwen
-cutoff_len: 4096
+cutoff_len: 8192
 max_samples: 10000
 overwrite_cache: true
 preprocessing_num_workers: 16
 
 ### output
-output_dir: saves/Qwen2-7B-Instruct
+output_dir: saves/Qwen2-7B-SimPO-LoRA
 logging_steps: 1
 save_steps: 100
 plot_loss: true
@@ -30,13 +32,14 @@ gradient_checkpointing: true
 
 ### train
 per_device_train_batch_size: 1
-gradient_accumulation_steps: 8
-learning_rate: 5.0e-7
+gradient_accumulation_steps: 2
+learning_rate: 1.0e-5
 num_train_epochs: 1.0
 lr_scheduler_type: cosine
 warmup_ratio: 0.1
 bf16: true
 ddp_timeout: 180000000
+deepspeed: /p/project1/envcomp/yll/adaptive-compute-rewrite/skythought/train/LLaMA-Factory/examples/deepspeed/ds_z3_config.json
 
 report_to: wandb
-run_name: Qwen2-7B-SimPO
+run_name: Qwen2-7B-SimPO-LoRA

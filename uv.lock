@@ -1098,6 +1098,19 @@ wheels = [
 ]
 
 [[package]]
+name = "liger-kernel"
+version = "0.6.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "torch" },
+    { name = "triton" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d8/21/517c24064fd4229040c00819d6d75375586338a603ca194c91897f414ff9/liger_kernel-0.6.4.tar.gz", hash = "sha256:302c9bb661a4ffb7bb716c5bff852f2449a3e8273be5ba9f4cc46ad06308af52", size = 3730057, upload-time = "2025-11-21T22:49:12.632Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a2/1a/12ef4b0310918ce3436c6dfdba60ccbbddd28c97a8260207a45a9976eaf7/liger_kernel-0.6.4-py3-none-any.whl", hash = "sha256:77b041f97cca2afaaef3b71f2e4d2978bf12b75c75f1de64ca557acfc4e3dc55", size = 230601, upload-time = "2025-11-21T22:49:11.312Z" },
+]
+
+[[package]]
 name = "lm-format-enforcer"
 version = "0.10.9"
 source = { registry = "https://pypi.org/simple" }
@@ -2973,6 +2986,7 @@ dependencies = [
     { name = "datasets" },
     { name = "hf-transfer" },
     { name = "latex2sympy2" },
+    { name = "liger-kernel" },
     { name = "pydantic" },
     { name = "pytest" },
     { name = "scipy", version = "1.13.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -3001,6 +3015,7 @@ requires-dist = [
     { name = "datasets", specifier = "<4.0.0" },
     { name = "hf-transfer" },
     { name = "latex2sympy2" },
+    { name = "liger-kernel", specifier = ">=0.6.4" },
     { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "pydantic" },
     { name = "pytest", specifier = ">=8.3.4" },
@@ -3264,7 +3279,7 @@ name = "triton"
 version = "3.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "filelock", marker = "(python_full_version < '3.10' and platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "filelock" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/98/29/69aa56dc0b2eb2602b553881e34243475ea2afd9699be042316842788ff5/triton-3.1.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6b0dd10a925263abbe9fa37dcde67a5e9b2383fc269fdf59f5657cac38c5d1d8", size = 209460013, upload-time = "2024-10-14T16:05:32.106Z" },
