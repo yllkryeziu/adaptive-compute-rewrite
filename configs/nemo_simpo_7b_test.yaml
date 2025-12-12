@@ -1,0 +1,120 @@
+# SimPO Training Configuration for Qwen2-7B (Testing)
+# For validating the setup before scaling to 32B
+
+# SimPO Algorithm Configuration
+simpo:
+  max_num_epochs: 1
+  max_num_steps: 50
+  val_period: 25
+  val_batches: 4
+  val_global_batch_size: 8
+  val_micro_batch_size: 2
+  val_at_start: true
+  seed: 42
+
+  # SimPO-specific parameters
+  beta: 2.0
+  gamma: 0.3
+  preference_loss_weight: 1.0
+  sft_loss_weight: 0.0
+
+checkpointing:
+  enabled: true
+  checkpoint_dir: "results/nemo_simpo_7b_test"
+  metric_name: "val:validation-default_loss"
+  higher_is_better: false
+  keep_top_k: 2
+  save_period: 25
+  checkpoint_must_save_by: null
+
+policy:
+  model_name: "Qwen/Qwen2.5-7B-Instruct"
+  tokenizer:
+    name: "Qwen/Qwen2.5-7B-Instruct"
+    chat_template_kwargs: null
+
+  train_global_batch_size: 32
+  train_micro_batch_size: 2
+
+  max_total_sequence_length: 4096
+  precision: "bfloat16"
+
+  offload_optimizer_for_logprob: false
+
+  # DTensor configuration for simple testing
+  dtensor_cfg:
+    env_vars:
+      PYTORCH_CUDA_ALLOC_CONF: ""
+    enabled: true
+    cpu_offload: false
+    sequence_parallel: false
+    activation_checkpointing: true
+    tensor_parallel_size: 4
+    context_parallel_size: 1
+    custom_parallel_plan: null
+    clear_cache_every_n_steps: null
+
+  dynamic_batching:
+    enabled: false
+
+  sequence_packing:
+    enabled: false
+
+  make_sequence_length_divisible_by: ${policy.dtensor_cfg.tensor_parallel_size}
+  max_grad_norm: 1.0
+
+  optimizer:
+    name: "torch.optim.AdamW"
+    kwargs:
+      lr: 5.0e-7
+      weight_decay: 0.1
+      betas: [0.9, 0.98]
+      eps: 1e-5
+      foreach: false
+      fused: false
+
+  scheduler:
+    - name: "torch.optim.lr_scheduler.LinearLR"
+      kwargs:
+        start_factor: 0.1
+        end_factor: 1.0
+        total_iters: 10
+    - name: "torch.optim.lr_scheduler.ConstantLR"
+      kwargs:
+        factor: 1.0
+        total_iters: 10000000000
+    - milestones: [10]
+
+  megatron_cfg:
+    enabled: false
+
+data:
+  max_input_seq_length: ${policy.max_total_sequence_length}
+  shuffle: true
+  num_workers: 2
+
+  dataset_name: BinaryPreferenceDataset
+  train_data_path: "/p/project1/envcomp/yll/adaptive-compute-rewrite/data/nemo_simpo_data.jsonl"
+  val_data_paths:
+    default: "/p/project1/envcomp/yll/adaptive-compute-rewrite/data/nemo_simpo_data.jsonl"
+
+  prompt_key: "prompt"
+  chosen_key: "chosen"
+  rejected_key: "rejected"
+
+logger:
+  log_dir: "logs/nemo_simpo_7b_test"
+  wandb_enabled: false
+  tensorboard_enabled: false
+  mlflow_enabled: false
+  swanlab_enabled: false
+  monitor_gpus: true
+  num_val_samples_to_print: 2
+
+  gpu_monitoring:
+    collection_interval: 10
+    flush_interval: 10
+
+cluster:
+  gpus_per_node: 4
+  num_nodes: 1

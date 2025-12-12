@@ -1,0 +1,165 @@
+# SimPO Training Configuration for Sky-T1-32B
+# Target: 16k sequence length on 4 nodes x 4 A100 40GB GPUs
+
+# SimPO Algorithm Configuration (replaces DPO)
+simpo:
+  max_num_epochs: 1
+  max_num_steps: 1000
+  val_period: 100
+  val_batches: 8
+  val_global_batch_size: 8
+  val_micro_batch_size: 1
+  val_at_start: true
+  seed: 42
+
+  # SimPO-specific parameters
+  beta: 2.0                        # Scaling factor (matches LLaMA-Factory pref_beta)
+  gamma: 0.3                       # Margin term (matches LLaMA-Factory simpo_gamma)
+  preference_loss_weight: 1.0
+  sft_loss_weight: 0.0             # No SFT loss for pure SimPO
+
+checkpointing:
+  enabled: true
+  checkpoint_dir: "results/nemo_simpo_32b"
+  metric_name: "val:validation-default_loss"
+  higher_is_better: false
+  keep_top_k: 3
+  save_period: 200
+  checkpoint_must_save_by: null
+
+policy:
+  model_name: "NovaSky-AI/Sky-T1-32B-Preview"
+  tokenizer:
+    name: "NovaSky-AI/Sky-T1-32B-Preview"
+    chat_template_kwargs: null
+
+  # Batch sizes for preference training
+  # Each preference sample = (chosen, rejected) pair
+  # Effective batch = train_global_batch_size * 2
+  train_global_batch_size: 16      # 16 pairs = 32 sequences
+  train_micro_batch_size: 1        # 1 pair = 2 sequences per micro-batch
+
+  max_total_sequence_length: 16384  # 16k target!
+  precision: "bfloat16"
+
+  offload_optimizer_for_logprob: false
+
+  # DTensor configuration (disabled for Megatron)
+  dtensor_cfg:
+    enabled: false
+
+  dynamic_batching:
+    enabled: false
+
+  sequence_packing:
+    enabled: false
+
+  make_sequence_length_divisible_by: 4  # Must be divisible by TP size
+  max_grad_norm: 1.0
+
+  # Megatron configuration for 32B model with context parallelism
+  megatron_cfg:
+    enabled: true
+    empty_unused_memory_level: 2
+
+    # Parallelism for 16k sequences on 4x4 A100-40GB
+    tensor_model_parallel_size: 4     # Split weights across 4 GPUs per node
+    pipeline_model_parallel_size: 1   # No pipeline parallelism (simpler)
+    context_parallel_size: 4          # Key! Split 16k sequences across 4 GPUs
+    sequence_parallel: true           # Enable sequence parallelism for activations
+
+    # Memory optimizations
+    activation_checkpointing: true
+
+    pipeline_dtype: ${policy.precision}
+    num_layers_in_first_pipeline_stage: null
+    num_layers_in_last_pipeline_stage: null
+
+    # MoE settings (not used for Qwen2)
+    expert_tensor_parallel_size: 1
+    expert_model_parallel_size: 1
+    freeze_moe_router: false
+    moe_router_dtype: "fp64"
+    moe_router_load_balancing_type: "aux_loss"
+    moe_router_bias_update_rate: 1e-3
+    moe_permute_fusion: false
+    moe_per_layer_logging: false
+
+    # Performance optimizations
+    apply_rope_fusion: true
+    bias_activation_fusion: true
+    defer_fp32_logits: false
+
+    optimizer:
+      optimizer: "adam"
+      lr: 5.0e-7                      # Matches LLaMA-Factory config
+      min_lr: 5.0e-8
+      weight_decay: 0.1
+      bf16: true
+      fp16: false
+      params_dtype: "float32"
+
+      adam_beta1: 0.9
+      adam_beta2: 0.98
+      adam_eps: 1e-8
+
+      # Distributed optimizer
+      use_distributed_optimizer: true
+      use_precision_aware_optimizer: true
+
+      clip_grad: ${policy.max_grad_norm}
+
+      # CPU offloading if needed
+      optimizer_cpu_offload: true      # Enable for 32B model
+      optimizer_offload_fraction: 1.0  # Offload all optimizer states
+
+    scheduler:
+      start_weight_decay: ${policy.megatron_cfg.optimizer.weight_decay}
+      end_weight_decay: ${policy.megatron_cfg.optimizer.weight_decay}
+      weight_decay_incr_style: "constant"
+      lr_decay_style: "cosine"
+      lr_warmup_iters: 100
+      lr_warmup_init: 5.0e-9
+
+    distributed_data_parallel_config:
+      grad_reduce_in_fp32: false
+      overlap_grad_reduce: true
+      overlap_param_gather: true
+      data_parallel_sharding_strategy: "optim_grads_params"
+      use_custom_fsdp: false
+
+data:
+  max_input_seq_length: ${policy.max_total_sequence_length}
+  shuffle: true
+  num_workers: 2
+
+  # Custom preference dataset
+  dataset_name: BinaryPreferenceDataset
+  train_data_path: "/p/project1/envcomp/yll/adaptive-compute-rewrite/data/nemo_simpo_data.jsonl"
+  val_data_paths:
+    default: "/p/project1/envcomp/yll/adaptive-compute-rewrite/data/nemo_simpo_data.jsonl"
+
+  prompt_key: "prompt"
+  chosen_key: "chosen"
+  rejected_key: "rejected"
+
+logger:
+  log_dir: "logs/nemo_simpo_32b"
+  wandb_enabled: true
+  tensorboard_enabled: false
+  mlflow_enabled: false
+  swanlab_enabled: false
+  monitor_gpus: true
+  num_val_samples_to_print: 2
+
+  wandb:
+    project: "sky-t1-simpo"
+    name: "nemo-simpo-32b-16k"
+
+  gpu_monitoring:
+    collection_interval: 30
+    flush_interval: 30
+
+cluster:
+  gpus_per_node: 4
+  num_nodes: 4

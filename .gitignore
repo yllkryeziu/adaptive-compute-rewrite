@@ -173,3 +173,4 @@ run_all.sh
 slurm/logs
 saves
 wandb
+docs
