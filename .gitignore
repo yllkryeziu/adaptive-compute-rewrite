@@ -175,3 +175,5 @@ saves
 wandb
 docs
 data/nemo_simpo_data.jsonl
+results
+logs

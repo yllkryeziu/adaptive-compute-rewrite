@@ -41,6 +41,9 @@ export NCCL_IB_DISABLE=0
 export NCCL_NET_GDR_LEVEL=5
 export NCCL_DEBUG=WARN
 
+# CUDA settings for Megatron
+export TORCH_CUDA_ARCH_LIST="8.0"  # A100 architecture
+
 # Ray settings
 export RAY_ADDRESS=""  # Let Ray auto-detect
 export RAY_DEDUP_LOGS=0
@@ -64,10 +67,54 @@ echo "============================================================"
 # Create logs directory if needed
 mkdir -p slurm/logs
 
-# Run SimPO training
+# ----------------------------
+# Start a multi-node Ray cluster
+# ----------------------------
+GPUS_PER_NODE=4
+RAY_PORT=6379
+HEAD_NODE="$MASTER_ADDR"
+
+# Use the first IP on the head node (Ray needs an IP, not just hostname)
+HEAD_IP="$(srun --nodes=1 --ntasks=1 -w "$HEAD_NODE" bash -lc 'hostname -I | cut -d" " -f1')"
+export RAY_ADDRESS="${HEAD_IP}:${RAY_PORT}"
+
+echo "Ray head node: $HEAD_NODE"
+echo "Ray head IP:   $HEAD_IP"
+echo "Ray address:   $RAY_ADDRESS"
+
+echo "Starting Ray on all allocated nodes..."
+srun --nodes="$SLURM_NNODES" --ntasks="$SLURM_NNODES" --ntasks-per-node=1 \
+  --cpus-per-task="$SLURM_CPUS_PER_TASK" --gpus-per-node="$GPUS_PER_NODE" \
+  bash -lc '
+set -e
+cd /p/project1/envcomp/yll/adaptive-compute-rewrite
+source nemo-rl/.venv/bin/activate
+
+# Always stop any stale Ray first (safe if none running)
+ray stop --force >/dev/null 2>&1 || true
+
+NODE_HOSTNAME="$(hostname)"
+if [ "$SLURM_NODEID" -eq 0 ]; then
+  echo "[Ray] Starting head on ${NODE_HOSTNAME}..."
+  ray start --head --node-ip-address="'"$HEAD_IP"'" --port="'"$RAY_PORT"'" \
+    --num-cpus="'"$SLURM_CPUS_PER_TASK"'" --num-gpus="'"$GPUS_PER_NODE"'" --disable-usage-stats
+else
+  echo "[Ray] Starting worker on ${NODE_HOSTNAME}..."
+  ray start --address="'"$HEAD_IP"':'"'"$RAY_PORT"'" \
+    --num-cpus="'"$SLURM_CPUS_PER_TASK"'" --num-gpus="'"$GPUS_PER_NODE"'" --disable-usage-stats
+fi
+'
+
+echo "Ray cluster started. Launching training on head..."
+
+# Run SimPO training with Megatron backend (connects to Ray via RAY_ADDRESS)
 python nemo-rl/examples/run_simpo.py \
-    --config configs/nemo_simpo_32b.yaml \
-    cluster.num_nodes=4 \
-    cluster.gpus_per_node=4
+  --config configs/nemo_simpo_32b.yaml \
+  cluster.num_nodes=4 \
+  cluster.gpus_per_node=4
+
+echo "Stopping Ray cluster..."
+srun --nodes="$SLURM_NNODES" --ntasks="$SLURM_NNODES" --ntasks-per-node=1 \
+  --cpus-per-task=1 bash -lc 'ray stop --force >/dev/null 2>&1 || true'
 
 echo "Training completed!"
