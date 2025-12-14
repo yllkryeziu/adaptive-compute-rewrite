@@ -20,7 +20,7 @@ simpo:
 
 checkpointing:
   enabled: true
-  checkpoint_dir: "results/nemo_simpo_7b_test"
+  checkpoint_dir: "results/nemo_simpo_7b_test2"
   metric_name: "val:validation-default_loss"
   higher_is_better: false
   keep_top_k: 2
@@ -36,7 +36,7 @@ policy:
   train_global_batch_size: 32
   train_micro_batch_size: 1
 
-  max_total_sequence_length: 4096
+  max_total_sequence_length: 16384
   precision: "bfloat16"
 
   offload_optimizer_for_logprob: false

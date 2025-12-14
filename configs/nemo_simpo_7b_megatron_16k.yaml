@@ -1,52 +1,43 @@
-# SimPO Training Configuration for Sky-T1-32B
-# Target: 16k sequence length on 4 nodes x 4 A100 40GB GPUs
+# SimPO Training Configuration for Qwen2.5-7B with Megatron
+# Target: 16k sequence length on 1 node x 4 A100 40GB GPUs
 
-# SimPO Algorithm Configuration (replaces DPO)
 simpo:
   max_num_epochs: 1
-  max_num_steps: 1000
+  max_num_steps: 500
   val_period: 100
-  val_batches: 8
+  val_batches: 4
   val_global_batch_size: 8
   val_micro_batch_size: 1
   val_at_start: true
   seed: 42
-
-  # SimPO-specific parameters
-  beta: 2.0                        # Scaling factor (matches LLaMA-Factory pref_beta)
-  gamma: 0.3                       # Margin term (matches LLaMA-Factory simpo_gamma)
+  beta: 2.0
+  gamma: 0.3
   preference_loss_weight: 1.0
-  sft_loss_weight: 0.0             # No SFT loss for pure SimPO
+  sft_loss_weight: 0.0
 
 checkpointing:
   enabled: true
-  checkpoint_dir: "results/nemo_simpo_32b"
+  checkpoint_dir: "results/nemo_simpo_7b_megatron_16k"
   metric_name: "val:validation-default_loss"
   higher_is_better: false
-  keep_top_k: 3
-  save_period: 200
+  keep_top_k: 2
+  save_period: 100
   checkpoint_must_save_by: null
 
 policy:
-  model_name: "NovaSky-AI/Sky-T1-32B-Preview"
+  model_name: "/p/project1/envcomp/yll/.cache/huggingface/hub/models--Qwen--Qwen2.5-7B-Instruct/snapshots/a09a35458c702b33eeacc393d103063234e8bc28"
   tokenizer:
-    name: "NovaSky-AI/Sky-T1-32B-Preview"
+    name: "/p/project1/envcomp/yll/.cache/huggingface/hub/models--Qwen--Qwen2.5-7B-Instruct/snapshots/a09a35458c702b33eeacc393d103063234e8bc28"
     chat_template_kwargs: null
 
-  # Batch sizes for preference training
-  # Each preference sample = (chosen, rejected) pair
-  # Effective batch = train_global_batch_size * 2
-  train_global_batch_size: 16      # 16 pairs = 32 sequences
-  train_micro_batch_size: 1        # 1 pair = 2 sequences per micro-batch
-
-  max_total_sequence_length: 16384  # 16k target!   
+  train_global_batch_size: 16       # Reduced from 32 for memory
+  train_micro_batch_size: 1
+  max_total_sequence_length: 16384  # 16k target
   precision: "bfloat16"
-
   offload_optimizer_for_logprob: false
 
-  # DTensor configuration (disabled for Megatron)
   dtensor_cfg:
-    enabled: false
+    enabled: false                   # Disable DTensor
 
   dynamic_batching:
     enabled: false
@@ -54,28 +45,26 @@ policy:
   sequence_packing:
     enabled: false
 
-  make_sequence_length_divisible_by: 4  # Must be divisible by TP size
+  make_sequence_length_divisible_by: 4
   max_grad_norm: 1.0
 
-  # Megatron configuration for 32B model with context parallelism
   megatron_cfg:
     enabled: true
     empty_unused_memory_level: 2
 
-    # Parallelism for 16k sequences on 4x4 A100-40GB
-    tensor_model_parallel_size: 4     # Split weights across 4 GPUs per node
-    pipeline_model_parallel_size: 4   # Split layers across 4 GPUs (replaces CP)
-    context_parallel_size: 1          # Disabled - SimPO incompatible with sequence packing
-    sequence_parallel: true           # Enable sequence parallelism for activations
+    # Parallelism for 7B on 1 node x 4 GPUs
+    tensor_model_parallel_size: 4     # All 4 GPUs for TP
+    pipeline_model_parallel_size: 1
+    context_parallel_size: 1          # No CP needed for 7B
+    sequence_parallel: true           # Key for memory savings
 
-    # Memory optimizations
     activation_checkpointing: true
 
     pipeline_dtype: ${policy.precision}
     num_layers_in_first_pipeline_stage: null
     num_layers_in_last_pipeline_stage: null
 
-    # MoE settings (not used for Qwen2)
+    # MoE settings (not used)
     expert_tensor_parallel_size: 1
     expert_model_parallel_size: 1
     freeze_moe_router: false
@@ -92,33 +81,27 @@ policy:
 
     optimizer:
       optimizer: "adam"
-      lr: 5.0e-7                      # Matches LLaMA-Factory config
+      lr: 5.0e-7
       min_lr: 5.0e-8
       weight_decay: 0.1
       bf16: true
       fp16: false
       params_dtype: "float32"
-
       adam_beta1: 0.9
       adam_beta2: 0.98
       adam_eps: 1e-8
-
-      # Distributed optimizer
       use_distributed_optimizer: true
       use_precision_aware_optimizer: true
-
       clip_grad: ${policy.max_grad_norm}
-
-      # CPU offloading if needed
-      optimizer_cpu_offload: true      # Enable for 32B model
-      optimizer_offload_fraction: 1.0  # Offload all optimizer states
+      optimizer_cpu_offload: true       # Offload optimizer to CPU
+      optimizer_offload_fraction: 1.0
 
     scheduler:
       start_weight_decay: ${policy.megatron_cfg.optimizer.weight_decay}
       end_weight_decay: ${policy.megatron_cfg.optimizer.weight_decay}
       weight_decay_incr_style: "constant"
       lr_decay_style: "cosine"
-      lr_warmup_iters: 100
+      lr_warmup_iters: 10
       lr_warmup_init: 5.0e-9
 
     distributed_data_parallel_config:
@@ -132,34 +115,29 @@ data:
   max_input_seq_length: ${policy.max_total_sequence_length}
   shuffle: true
   num_workers: 2
-
-  # Custom preference dataset
   dataset_name: BinaryPreferenceDataset
   train_data_path: "/p/project1/envcomp/yll/adaptive-compute-rewrite/data/nemo_simpo_data.jsonl"
   val_data_paths:
     default: "/p/project1/envcomp/yll/adaptive-compute-rewrite/data/nemo_simpo_data.jsonl"
-
   prompt_key: "prompt"
   chosen_key: "chosen"
   rejected_key: "rejected"
 
 logger:
-  log_dir: "logs/nemo_simpo_32b"
+  log_dir: "logs/nemo_simpo_7b_megatron_16k"
   wandb_enabled: true
+  wandb:
+    project: "nemo-simpo"
+    name: "qwen2.5-7b-megatron-16k-test"
   tensorboard_enabled: false
   mlflow_enabled: false
   swanlab_enabled: false
   monitor_gpus: true
   num_val_samples_to_print: 2
-
-  wandb:
-    project: "sky-t1-simpo"
-    name: "nemo-simpo-32b-16k"
-
   gpu_monitoring:
-    collection_interval: 30
-    flush_interval: 30
+    collection_interval: 10
+    flush_interval: 10
 
 cluster:
   gpus_per_node: 4
-  num_nodes: 4
+  num_nodes: 1
