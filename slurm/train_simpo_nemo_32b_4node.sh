@@ -7,7 +7,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --partition=booster
 #SBATCH --account=envcomp
-#SBATCH --output=logs/nemo-simpo-32b-4node-%j.out
+#SBATCH --output=logs/%j-nemo-simpo-32b-4node.out
 
 # ============================================================
 # NeMo-RL SimPO Training for Sky-T1-32B
@@ -89,8 +89,8 @@ GPUS_PER_NODE=4
 RAY_PORT=6379
 HEAD_NODE="$MASTER_ADDR"
 
-# Use the first IP on the head node (Ray needs an IP, not just hostname)
-HEAD_IP="$(srun --nodes=1 --ntasks=1 -w "$HEAD_NODE" bash -lc 'hostname -I | cut -d" " -f1')"
+# Use the hostname directly - let DNS/hosts handle resolution to the correct interface
+HEAD_IP="$HEAD_NODE"
 export RAY_ADDRESS="${HEAD_IP}:${RAY_PORT}"
 
 echo "Ray head node: $HEAD_NODE"
@@ -124,9 +124,13 @@ if [ \"\$SLURM_NODEID\" -eq 0 ]; then
   ray start --head --node-ip-address=\"$HEAD_IP\" --port=\"$RAY_PORT\" \
     --num-cpus=\"\$SLURM_CPUS_PER_TASK\" --num-gpus=\"$GPUS_PER_NODE\" --disable-usage-stats
 
-  # Wait for workers to join (simple wait)
-  echo \"[Head] Waiting for workers to join...\"
-  sleep 15
+  # Wait for workers to join
+  echo \"[Head] Waiting for workers to join (45s)...\"
+  sleep 45
+  
+  # Show cluster status
+  echo \"[Head] Ray cluster status:\"
+  ray status || true
 
   # Run the training
   echo \"[Head] Starting SimPO training (Sky-T1-32B)...\"
@@ -147,8 +151,8 @@ else
   # === WORKER NODES ===
   echo \"[Ray] Starting worker on \${NODE_HOSTNAME}...\"
   
-  # Wait a moment for head to start
-  sleep 5
+  # Wait for head to start
+  sleep 10
   
   ray start --address=\"$HEAD_IP:$RAY_PORT\" \
     --num-cpus=\"\$SLURM_CPUS_PER_TASK\" --num-gpus=\"$GPUS_PER_NODE\" --disable-usage-stats
