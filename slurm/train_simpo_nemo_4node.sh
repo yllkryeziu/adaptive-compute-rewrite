@@ -7,7 +7,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --partition=booster
 #SBATCH --account=envcomp
-#SBATCH --output=slurm/logs/nemo-simpo-32b-%j.out
+#SBATCH --output=slurm/logs/%j-nemo-simpo-32b.out
 #SBATCH --error=slurm/logs/nemo-simpo-32b-%j.err
 
 # ============================================================
@@ -54,6 +54,9 @@ cd /p/project1/envcomp/yll/adaptive-compute-rewrite
 # Activate NeMo-RL venv
 source nemo-rl/.venv/bin/activate
 
+# Configuration file (override with --export=CONFIG_FILE=path/to/config.yaml)
+CONFIG_FILE=${CONFIG_FILE:-configs/nemo_simpo_32b.yaml}
+
 echo "============================================================"
 echo "NeMo-RL SimPO Training"
 echo "============================================================"
@@ -61,7 +64,7 @@ echo "Job ID: $SLURM_JOB_ID"
 echo "Nodes: $SLURM_NNODES"
 echo "GPUs per node: 4"
 echo "Master: $MASTER_ADDR"
-echo "Config: configs/nemo_simpo_32b.yaml"
+echo "Config: $CONFIG_FILE"
 echo "============================================================"
 
 # Create logs directory if needed
@@ -109,7 +112,7 @@ echo "Ray cluster started. Launching training on head..."
 
 # Run SimPO training with Megatron backend (connects to Ray via RAY_ADDRESS)
 python nemo-rl/examples/run_simpo.py \
-  --config configs/nemo_simpo_32b.yaml \
+  --config "$CONFIG_FILE" \
   cluster.num_nodes=4 \
   cluster.gpus_per_node=4
 

@@ -7,7 +7,7 @@
 #SBATCH --time=02:00:00
 #SBATCH --partition=develbooster
 #SBATCH --account=envcomp
-#SBATCH --output=logs/nemo-simpo-7b-megatron-%j.out
+#SBATCH --output=logs/%j-nemo-simpo-7b-megatron.out
 
 # ============================================================
 # NeMo-RL SimPO Test Training for Qwen2.5-7B with Megatron

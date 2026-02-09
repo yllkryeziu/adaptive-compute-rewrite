@@ -7,7 +7,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --partition=booster
 #SBATCH --account=envcomp
-#SBATCH --output=logs/%x-%j.out
+#SBATCH --output=logs/%j-%x.out
 
 # --- Environment Setup (Copied from adaptive-compute-rewrite standards) ---
 module --force purge

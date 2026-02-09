@@ -1,10 +1,24 @@
-# SimPO Training Configuration for Sky-T1-32B
+# SimPO Training Configuration for Sky-T1-32B - V4 (100% NovaSky Equivalent)
 # Target: 16k sequence length on 4 nodes x 4 A100 40GB GPUs
+#
+# Matches NovaSky's qwen2_full_simpo.yaml exactly:
+# https://github.com/NovaSky-AI/SkyThought/blob/main/skythought/train/LLaMA-Factory/examples/train_full/qwen2_full_simpo.yaml
+#
+# Key parameters from NovaSky:
+# - pref_beta: 2.0, simpo_gamma: 0.3
+# - learning_rate: 5.0e-7
+# - num_train_epochs: 1.0
+# - warmup_ratio: 0.1 (10%)
+# - per_device_train_batch_size: 1, gradient_accumulation_steps: 12, 8 GPUs = 96 effective batch
+# - lr_scheduler_type: cosine
+# - bf16: true
+#
+# Parallelism: TP=4, PP=2, DP=2 (enables gradient averaging like NovaSky's DP=8)
 
 # SimPO Algorithm Configuration (replaces DPO)
 simpo:
-  max_num_epochs: 1
-  max_num_steps: 1000
+  max_num_epochs: 1  # Matches NovaSky: num_train_epochs: 1.0
+  max_num_steps: 1000  # High limit, epoch will finish first (~98 steps with batch=96)
   val_period: 100
   val_batches: 8
   val_global_batch_size: 8
@@ -20,7 +34,7 @@ simpo:
 
 checkpointing:
   enabled: true
-  checkpoint_dir: "results/nemo_simpo_32b_v3"
+  checkpoint_dir: "results/nemo_simpo_32b_v4"
   metric_name: "val:validation-default_loss"
   higher_is_better: false
   keep_top_k: 3
@@ -39,7 +53,7 @@ policy:
   train_global_batch_size: 96       # Match LLaMA-Factory: 1 × 12 grad_accum × 8 H100s
   train_micro_batch_size: 1        # 1 pair = 2 sequences per micro-batch
 
-  max_total_sequence_length: 16384  # 16k target!   
+  max_total_sequence_length: 16384  # 16k target!
   precision: "bfloat16"
 
   offload_optimizer_for_logprob: false
@@ -63,10 +77,15 @@ policy:
     empty_unused_memory_level: 2
 
     # Parallelism for 16k sequences on 4x4 A100-40GB
-    tensor_model_parallel_size: 4     # Split weights across 4 GPUs per node
-    pipeline_model_parallel_size: 4   # Split layers across 4 GPUs (replaces CP)
-    context_parallel_size: 1          # Disabled - SimPO incompatible with sequence packing
+    # TP=4, PP=2, DP=2 (16 GPUs total)
+    # - TP=4: weights split across 4 GPUs (~8GB/GPU for 32B model)
+    # - PP=2: layers split across 2 pipeline stages
+    # - DP=2: 2 data parallel replicas for gradient averaging (closer to NovaSky)
+    tensor_model_parallel_size: 4     # Split weights across 4 GPUs
+    pipeline_model_parallel_size: 2   # Reduced from 4 to enable DP=2
+    context_parallel_size: 1          # Disabled - SimPO incompatible with CP
     sequence_parallel: true           # Enable sequence parallelism for activations
+    # Data parallel size is automatically: 16 / (4 * 2) = 2
 
     # Memory optimizations
     activation_checkpointing: true
@@ -92,15 +111,15 @@ policy:
 
     optimizer:
       optimizer: "adam"
-      lr: 4.0e-6                      # 8× higher to compensate for batch size normalization
-      min_lr: 4.0e-7
-      weight_decay: 0.1
+      lr: 5.0e-7                      # Matches NovaSky Sky-T1-32B-Flash official config
+      min_lr: 5.0e-8                  # Proportional floor
+      weight_decay: 0.0               # NovaSky doesn't specify, HuggingFace default is 0
       bf16: true
       fp16: false
       params_dtype: "float32"
 
       adam_beta1: 0.9
-      adam_beta2: 0.999               # Match PyTorch default (LLaMA-Factory uses default)
+      adam_beta2: 0.999               # HuggingFace/PyTorch default (NovaSky doesn't specify)
       adam_eps: 1e-8
 
       # Distributed optimizer
@@ -118,7 +137,7 @@ policy:
       end_weight_decay: ${policy.megatron_cfg.optimizer.weight_decay}
       weight_decay_incr_style: "constant"
       lr_decay_style: "cosine"
-      lr_warmup_iters: 10              # ~10% warmup (10/98 steps with batch size 96)
+      lr_warmup_iters: 10              # 10% warmup (matches NovaSky warmup_ratio: 0.1)
       lr_warmup_init: 5.0e-9
 
     distributed_data_parallel_config:
@@ -144,7 +163,7 @@ data:
   rejected_key: "rejected"
 
 logger:
-  log_dir: "logs/nemo_simpo_32b_v3"
+  log_dir: "logs/nemo_simpo_32b_v4"
   wandb_enabled: true
   tensorboard_enabled: false
   mlflow_enabled: false
@@ -154,7 +173,7 @@ logger:
 
   wandb:
     project: "sky-t1-simpo"
-    name: "nemo-simpo-32b-16k-v3"
+    name: "nemo-simpo-32b-16k-v4"
 
   gpu_monitoring:
     collection_interval: 30

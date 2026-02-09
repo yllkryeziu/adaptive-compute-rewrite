@@ -7,7 +7,7 @@
 #SBATCH --time=01:00:00
 #SBATCH --partition=develbooster
 #SBATCH --account=envcomp
-#SBATCH --output=logs/install-megatron-%j.out
+#SBATCH --output=logs/%j-install-megatron.out
 
 # ============================================================
 # Install Megatron dependencies on a compute node with GPU/CUDA

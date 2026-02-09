@@ -7,7 +7,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --partition=booster
 #SBATCH --account=envcomp
-#SBATCH --output=logs/nemo-simpo-7b-4node-%j.out
+#SBATCH --output=logs/%j-nemo-simpo-7b-4node.out
 
 # ============================================================
 # NeMo-RL SimPO Training for Qwen2.5-7B

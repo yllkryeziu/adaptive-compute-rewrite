@@ -7,7 +7,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --partition=booster
 #SBATCH --account=envcomp
-#SBATCH --output=slurm/logs/%x-%j.out
+#SBATCH --output=slurm/logs/%j-%x.out
 
 # --- Environment Setup ---
 module --force purge

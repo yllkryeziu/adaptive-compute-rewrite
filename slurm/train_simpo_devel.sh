@@ -7,7 +7,7 @@
 #SBATCH --time=02:00:00
 #SBATCH --partition=develbooster
 #SBATCH --account=envcomp
-#SBATCH --output=logs/%x-%j.out
+#SBATCH --output=logs/%j-%x.out
 
 # --- Environment Setup ---
 module --force purge

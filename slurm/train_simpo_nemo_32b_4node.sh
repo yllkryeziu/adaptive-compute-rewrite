@@ -44,6 +44,7 @@ export NCCL_DEBUG=WARN
 # CUDA settings
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 export TORCH_CUDA_ARCH_LIST="8.0"
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 # Ray settings
 export RAY_ADDRESS=""
@@ -52,7 +53,12 @@ export NEMO_RL_PY_EXECUTABLES_SYSTEM=1
 
 # W&B settings (offline mode for cluster)
 export WANDB_MODE=offline
-export WANDB_DIR=/p/project1/envcomp/yll/adaptive-compute-rewrite/wandb
+
+# Output directories on $SCRATCH (not project - saves quota!)
+export CHECKPOINT_DIR="$SCRATCH/yll/adaptive-compute/results/nemo_simpo_32b_v4"
+export LOG_DIR="$SCRATCH/yll/adaptive-compute/logs/nemo_simpo_32b_v4"
+export WANDB_DIR="$SCRATCH/yll/adaptive-compute/wandb"
+mkdir -p "$CHECKPOINT_DIR" "$LOG_DIR" "$WANDB_DIR"
 
 # Suppress warnings
 export TRANSFORMERS_NO_ADVISORY_WARNINGS=1
@@ -75,7 +81,7 @@ echo "Job ID: $SLURM_JOB_ID"
 echo "Nodes: $SLURM_NNODES"
 echo "GPUs per node: 4"
 echo "Master: $MASTER_ADDR"
-echo "Config: configs/nemo_simpo_32b.yaml"
+echo "Config: configs/nemo_simpo_32b_v4.yaml"
 echo "============================================================"
 
 # Create logs directory if needed
@@ -89,8 +95,13 @@ GPUS_PER_NODE=4
 RAY_PORT=6379
 HEAD_NODE="$MASTER_ADDR"
 
-# Use the hostname directly - let DNS/hosts handle resolution to the correct interface
-HEAD_IP="$HEAD_NODE"
+# Resolve HEAD_NODE to its actual IP for reliable cross-node Ray connectivity
+# Using hostname -i on the head node to get the IB/routable IP
+HEAD_IP=$(srun --nodes=1 --ntasks=1 -w "$HEAD_NODE" hostname -i 2>/dev/null | awk '{print $1}')
+if [ -z "$HEAD_IP" ]; then
+  echo "WARNING: Could not resolve HEAD_IP, falling back to hostname"
+  HEAD_IP="$HEAD_NODE"
+fi
 export RAY_ADDRESS="${HEAD_IP}:${RAY_PORT}"
 
 echo "Ray head node: $HEAD_NODE"
@@ -101,7 +112,7 @@ echo "Ray address:   $RAY_ADDRESS"
 export HEAD_IP RAY_PORT GPUS_PER_NODE
 
 # Create a shared signal file for coordination
-SIGNAL_FILE="/tmp/ray_training_done_${SLURM_JOB_ID}"
+SIGNAL_FILE="/p/project1/envcomp/yll/adaptive-compute-rewrite/ray_training_done_${SLURM_JOB_ID}"
 
 echo "Starting Ray cluster and training (all nodes in single srun)..."
 
@@ -124,9 +135,22 @@ if [ \"\$SLURM_NODEID\" -eq 0 ]; then
   ray start --head --node-ip-address=\"$HEAD_IP\" --port=\"$RAY_PORT\" \
     --num-cpus=\"\$SLURM_CPUS_PER_TASK\" --num-gpus=\"$GPUS_PER_NODE\" --disable-usage-stats
 
-  # Wait for workers to join
-  echo \"[Head] Waiting for workers to join (45s)...\"
-  sleep 45
+  # Wait for all workers to join - poll until we have 16 GPUs
+  echo \"[Head] Waiting for all workers to join (expecting 16 GPUs)...\"
+  EXPECTED_GPUS=16
+  MAX_WAIT=120
+  ELAPSED=0
+  while [ \$ELAPSED -lt \$MAX_WAIT ]; do
+    CURRENT_GPUS=\$(ray status 2>/dev/null | grep -oP '[0-9.]+(?=/[0-9.]+ GPU)' | head -1 || echo 0)
+    TOTAL_GPUS=\$(ray status 2>/dev/null | grep -oP '(?<=/)[0-9.]+(?= GPU)' | head -1 || echo 0)
+    echo \"[Head] GPUs available: \${TOTAL_GPUS}/\${EXPECTED_GPUS} (waited \${ELAPSED}s)\"
+    if [ \"\${TOTAL_GPUS%%.*}\" -ge \"\$EXPECTED_GPUS\" ]; then
+      echo \"[Head] All workers connected!\"
+      break
+    fi
+    sleep 10
+    ELAPSED=\$((ELAPSED + 10))
+  done
   
   # Show cluster status
   echo \"[Head] Ray cluster status:\"
@@ -135,9 +159,11 @@ if [ \"\$SLURM_NODEID\" -eq 0 ]; then
   # Run the training
   echo \"[Head] Starting SimPO training (Sky-T1-32B)...\"
   python nemo-rl/examples/run_simpo.py \
-    --config configs/nemo_simpo_32b.yaml \
+    --config configs/nemo_simpo_32b_v4.yaml \
     cluster.num_nodes=4 \
-    cluster.gpus_per_node=4
+    cluster.gpus_per_node=4 \
+    checkpointing.checkpoint_dir="$CHECKPOINT_DIR" \
+    logger.log_dir="$LOG_DIR"
 
   # Signal completion to workers
   echo \"[Head] Training complete, signaling workers...\"
@@ -154,7 +180,11 @@ else
   # Wait for head to start
   sleep 10
   
-  ray start --address=\"$HEAD_IP:$RAY_PORT\" \
+  # Get local node's IP for binding
+  WORKER_IP=\$(hostname -i | awk '{print \$1}')
+  echo \"[Worker \$SLURM_NODEID] Local IP: \${WORKER_IP}\"
+  
+  ray start --address=\"$HEAD_IP:$RAY_PORT\" --node-ip-address=\"\${WORKER_IP}\" \\
     --num-cpus=\"\$SLURM_CPUS_PER_TASK\" --num-gpus=\"$GPUS_PER_NODE\" --disable-usage-stats
 
   # Wait for training to complete (poll for signal file)

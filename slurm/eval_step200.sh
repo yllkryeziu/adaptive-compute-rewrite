@@ -7,7 +7,7 @@
 #SBATCH --time=03:00:00
 #SBATCH --partition=booster
 #SBATCH --account=envcomp
-#SBATCH --output=logs/%x-%j.out
+#SBATCH --output=logs/%j-%x.out
 
 module --force purge
 module load Stages/2025
